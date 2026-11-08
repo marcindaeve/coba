@@ -1,21 +1,48 @@
-/* Custom CSS Tambahan untuk MIRZA System */
+/* Custom CSS untuk MIRZA System - PT Solusi Bangun Indonesia (SBI) Theme */
+:root {
+  --sbi-dark: #0f172a;        /* Industrial Slate / Dark Navy */
+  --sbi-green: #059669;       /* SBI Emerald Green (Sustainability) */
+  --sbi-green-hover: #047857; /* Darker Green for Hover */
+  --sbi-bg: #f8fafc;          /* Clean Light Gray Background */
+}
+
 body {
-    background-color: #f1f5f9;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--sbi-bg);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1e293b;
 }
 
 /* Kustomisasi scrollbar halus */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+  background: var(--sbi-green);
+}
+
+/* Print Optimization ketika tombol Cetak/PDF ditekan */
+@media print {
+  body {
+    background: white;
+  }
+  header, nav, .print\:hidden, button {
+    display: none !important;
+  }
+  .fixed {
+    position: absolute;
+    inset: 0;
+    background: white;
+    padding: 0;
+  }
+  .shadow-xl, .shadow-lg, .shadow-sm {
+    box-shadow: none !important;
+  }
 }
