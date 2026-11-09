@@ -1,68 +1,57 @@
-require('dotenv').config();
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const { Pool } = require('pg');
 
 const app = express();
-
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
-// Mengambil konfigurasi dari file .env secara otomatis
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'coba_mirza',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'MirzaRCA2026!',
+// Menghubungkan ke MongoDB Compass Lokal (Database: coba_mirza)
+mongoose.connect('mongodb://localhost:27017/coba_mirza', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+.then(() => console.log('✅ Berhasil terhubung ke MongoDB Compass Lokal (coba_mirza)!'))
+.catch((err) => console.error('❌ Gagal terhubung ke MongoDB:', err));
+
+// Skema Database RCA (Menyesuaikan dengan Input 1 & 2 MIRZA)
+const rcaSchema = new mongoose.Schema({
+    rcaId: String,
+    equipment: String,
+    tagNumber: String,
+    area: String,
+    stopReason: String,
+    stopDate: String,
+    downtime: String,
+    rcaDate: String,
+    status: String,
+    rootCauses: Array
 });
 
+const RcaModel = mongoose.model('RcaRecord', rcaSchema);
+
+// API Endpoint untuk Ambil Data RCA (GET)
+app.get('/api/rcas', async (req, res) => {
+    try {
+        const data = await RcaModel.find();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// API Endpoint untuk Simpan Data RCA Baru (POST)
 app.post('/api/rcas', async (req, res) => {
-  try {
-const { 
-      equipment = '', 
-      tagNumber = '', 
-      stopReason = '', 
-      stopDate = null, 
-      downtime = '', 
-      rcaDate = null, 
-      docDescription = '', 
-      rootCauses = '' 
-    } = req.body;
-// Pastikan tidak ada pemanggilan .toLowerCase() pada variabel di bawah ini jika nilainya bisa kosong
-    const query = `
-      INSERT INTO rcas (equipment, tag_number, stop_reason, stop_date, downtime, rca_date, doc_description, root_causes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *;
-    `;
-    
-    const values = [
-      equipment, 
-      tagNumber, 
-      stopReason, 
-      stopDate, 
-      downtime, 
-      rcaDate, 
-      docDescription, 
-      rootCauses
-    ];
-
-    const result = await pool.query(query, values);
-
-    res.status(201).json({
-      success: true,
-      data: result.rows[0]
-    });
-
-  } catch (err) {
-    console.error('DETAIL ERROR POSTGRESQL:', err.message);
-    res.status(500).json({ 
-      success: false, 
-      error: `DB Error: ${err.message}` 
-    });
-  }
+    try {
+        const newRca = new RcaModel(req.body);
+        const savedRca = await newRca.save();
+        res.status(201).json(savedRca);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.listen(process.env.PORT || 5000, () => {
-  console.log(`Server berjalan di port ${process.env.PORT || 5000}`);
+// Jalankan Server Backend di Port 5000
+app.listen(5000, () => {
+    console.log('🚀 Server backend MIRZA berjalan di http://localhost:5000');
 });
