@@ -1,4 +1,5 @@
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
+const API_BASE = window.location.origin.startsWith('http') ? '' : 'http://localhost:5000';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -203,88 +204,132 @@ function App() {
     setNewRcaForm({ ...newRcaForm, additionalDocs: updatedDocs });
   };
 
-const handleSaveRca = async (e) => {
-  e.preventDefault();
+  // State status koneksi ke Backend PostgreSQL
+  const [dbStatus, setDbStatus] = useState('checking'); // 'connected' | 'disconnected' | 'checking'
+  const [isLoading, setIsLoading] = useState(false);
 
-  try {
-    // 1. Kirim data RCA ke PostgreSQL
-    const response = await fetch('http://127.0.0.1:5000/api/rcas', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(newRcaForm)
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Gagal menyimpan RCA');
-    }
-
-    console.log('RCA berhasil disimpan:', result);
-
-    // 2. Siapkan data untuk Dashboard
-    const newRcaEntry = {
-      rcaId: result.rcaCode,
-      equipment: newRcaForm.equipment,
-      tagNumber: newRcaForm.tagNumber,
-      area: newRcaForm.area,
-      stopReason: newRcaForm.stopReason,
-      stopDate: newRcaForm.stopDate,
-      downtime: newRcaForm.downtime,
-      rcaDate: newRcaForm.rcaDate,
-      docDescription: newRcaForm.docDescription,
-      additionalDocs: newRcaForm.additionalDocs,
-      rootCauses: newRcaForm.rootCauses
-    };
-
-    // 3. Perbarui Dashboard
-    setRcas(prev => [newRcaEntry, ...prev]);
-
-    // 4. Reset Form
-    setNewRcaForm({
-      equipment: '',
-      tagNumber: '',
-      area: 'Kiln Department',
-      stopReason: '',
-      stopDate: new Date().toISOString().split('T')[0],
-      downtime: '',
-      rcaDate: new Date().toISOString().split('T')[0],
-      docDescription: '',
-      additionalDocs: [],
-      rootCauses: [
-        {
-          id: 'RC-1',
-          description: '',
-          actionPlans: [
-            {
-              id: 'ACT-1',
-              description: '',
-              responsible: '',
-              department: 'Mechanical MTC',
-              deadline: '',
-              status: 'Not Yet',
-              whyReason: '',
-              completionDate: '',
-              evidencePhoto: null
-            }
-          ]
+  // Fungsi Fetch RCA dari API PostgreSQL
+  const fetchRcas = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE}/api/rcas`);
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setRcas(data);
         }
-      ]
-    });
+        setDbStatus('connected');
+      } else {
+        setDbStatus('disconnected');
+      }
+    } catch (err) {
+      console.warn('Backend API tidak merespon, menggunakan data lokal:', err.message);
+      setDbStatus('disconnected');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    // 5. Kembali ke Dashboard
-    setActiveTab('dashboard');
+  // Panggil fetchRcas saat aplikasi dimuat pertama kali
+  useEffect(() => {
+    fetchRcas();
+  }, []);
 
-    alert(`RCA ${result.rcaCode} berhasil disimpan ke PostgreSQL!`);
+  const handleSaveRca = async (e) => {
+    e.preventDefault();
 
-  } catch (err) {
-    console.error('SAVE RCA ERROR:', err);
+    try {
+      // 1. Kirim data RCA ke PostgreSQL
+      const response = await fetch(`${API_BASE}/api/rcas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newRcaForm)
+      });
 
-    alert(`Gagal menyimpan RCA: ${err.message}`);
-  }
-};
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Gagal menyimpan RCA');
+      }
+
+      console.log('RCA berhasil disimpan ke PostgreSQL:', result);
+
+      // 2. Siapkan data untuk Dashboard
+      const newRcaEntry = result.data ? {
+        id: result.data.id,
+        rcaId: result.data.rcaId || result.rcaCode,
+        equipment: result.data.equipment,
+        tagNumber: result.data.tagNumber,
+        area: result.data.area,
+        stopReason: result.data.stopReason,
+        stopDate: result.data.stopDate,
+        downtime: result.data.downtime,
+        rcaDate: result.data.rcaDate,
+        docDescription: result.data.docDescription,
+        additionalDocs: result.data.additionalDocs,
+        rootCauses: result.data.rootCauses
+      } : {
+        rcaId: result.rcaCode,
+        equipment: newRcaForm.equipment,
+        tagNumber: newRcaForm.tagNumber,
+        area: newRcaForm.area,
+        stopReason: newRcaForm.stopReason,
+        stopDate: newRcaForm.stopDate,
+        downtime: newRcaForm.downtime,
+        rcaDate: newRcaForm.rcaDate,
+        docDescription: newRcaForm.docDescription,
+        additionalDocs: newRcaForm.additionalDocs,
+        rootCauses: newRcaForm.rootCauses
+      };
+
+      // 3. Perbarui Dashboard
+      setRcas(prev => [newRcaEntry, ...prev]);
+      setDbStatus('connected');
+
+      // 4. Reset Form
+      setNewRcaForm({
+        equipment: '',
+        tagNumber: '',
+        area: 'Kiln Department',
+        stopReason: '',
+        stopDate: new Date().toISOString().split('T')[0],
+        downtime: '',
+        rcaDate: new Date().toISOString().split('T')[0],
+        docDescription: '',
+        additionalDocs: [],
+        rootCauses: [
+          {
+            id: 'RC-1',
+            description: '',
+            actionPlans: [
+              {
+                id: 'ACT-1',
+                description: '',
+                responsible: '',
+                department: 'Mechanical MTC',
+                deadline: '',
+                status: 'Not Yet',
+                whyReason: '',
+                completionDate: '',
+                evidencePhoto: null
+              }
+            ]
+          }
+        ]
+      });
+
+      // 5. Kembali ke Dashboard
+      setActiveTab('dashboard');
+
+      alert(`✅ Sukses! RCA ${result.rcaCode} berhasil disimpan ke PostgreSQL!`);
+
+    } catch (err) {
+      console.error('SAVE RCA ERROR:', err);
+      alert(`Gagal menyimpan RCA ke database: ${err.message}`);
+    }
+  };
 
   // Filter & Search Logic
   const filteredRcas = useMemo(() => {
@@ -352,19 +397,43 @@ const handleSaveRca = async (e) => {
 
       {/* Navigasi Modul */}
       <nav className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 flex space-x-8">
-          <button 
-            onClick={() => setActiveTab('dashboard')} 
-            className={`py-3 text-sm font-semibold transition border-b-2 ${activeTab === 'dashboard' ? 'border-cyan-600 text-cyan-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
-          >
-            Dashboard Utama
-          </button>
-          <button 
-            onClick={() => setActiveTab('input-rca')} 
-            className={`py-3 text-sm font-semibold transition border-b-2 ${activeTab === 'input-rca' ? 'border-cyan-600 text-cyan-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
-          >
-            + Input RCA Baru
-          </button>
+        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
+          <div className="flex space-x-8">
+            <button 
+              onClick={() => setActiveTab('dashboard')} 
+              className={`py-3 text-sm font-semibold transition border-b-2 ${activeTab === 'dashboard' ? 'border-cyan-600 text-cyan-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+            >
+              Dashboard Utama
+            </button>
+            <button 
+              onClick={() => setActiveTab('input-rca')} 
+              className={`py-3 text-sm font-semibold transition border-b-2 ${activeTab === 'input-rca' ? 'border-cyan-600 text-cyan-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
+            >
+              + Input RCA Baru
+            </button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+              dbStatus === 'connected' 
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                : dbStatus === 'checking'
+                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                : 'bg-rose-100 text-rose-800 border border-rose-300'
+            }`}>
+              <span className={`w-2 h-2 rounded-full mr-1.5 ${
+                dbStatus === 'connected' ? 'bg-emerald-500' : dbStatus === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'
+              }`}></span>
+              {dbStatus === 'connected' ? 'PostgreSQL: Terhubung' : dbStatus === 'checking' ? 'Memeriksa DB...' : 'PostgreSQL: Offline / Belum Terhubung'}
+            </span>
+            <button
+              onClick={fetchRcas}
+              disabled={isLoading}
+              title="Refresh data dari PostgreSQL"
+              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-medium transition"
+            >
+              {isLoading ? '⏳' : '🔄 Refresh'}
+            </button>
+          </div>
         </div>
       </nav>
 
